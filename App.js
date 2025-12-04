@@ -1,10 +1,13 @@
-import { StyleSheet } from 'react-native';
+import { useEffect } from 'react';
+import { StyleSheet, Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+// Import connection checker
+import { useNetInfo } from '@react-native-community/netinfo';
 
-// Import the screens WITH .js EXTENSION to force resolution
-import Start from './components/Start.js';
-import Chat from './components/Chat.js';
+// Import the screens
+import Start from './components/Start';
+import Chat from './components/Chat';
 
 // Import Firebase
 import { initializeApp } from "firebase/app";
@@ -22,13 +25,23 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-// Initialize Cloud Firestore and get a reference to the service
 const db = getFirestore(app);
 
 const Stack = createNativeStackNavigator();
 
 const App = () => {
+  // Get connection status
+  const connectionStatus = useNetInfo();
+
+  useEffect(() => {
+    if (connectionStatus.isConnected === false) {
+      Alert.alert("Connection Lost!");
+      disableNetwork(db);
+    } else if (connectionStatus.isConnected === true) {
+      enableNetwork(db);
+    }
+  }, [connectionStatus.isConnected]);
+
   return (
     <NavigationContainer>
       <Stack.Navigator
@@ -41,8 +54,8 @@ const App = () => {
         <Stack.Screen
           name="Chat"
         >
-          {/* Pass the database prop to the Chat screen */}
-          {props => <Chat {...props} db={db} />}
+          {/* Pass db AND isConnected prop to Chat */}
+          {props => <Chat {...props} db={db} isConnected={connectionStatus.isConnected} />}
         </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>
