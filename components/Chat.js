@@ -3,12 +3,15 @@ import { StyleSheet, View, Platform, KeyboardAvoidingView } from 'react-native';
 import { GiftedChat, Bubble, InputToolbar } from "react-native-gifted-chat";
 import { collection, addDoc, onSnapshot, query, orderBy } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import CustomActions from './CustomActions';
+import MapView from 'react-native-maps';
+// Import ActionSheetProvider
+import { ActionSheetProvider } from '@expo/react-native-action-sheet';
 
-const Chat = ({ route, navigation, db, isConnected }) => {
+const Chat = ({ route, navigation, db, isConnected, storage }) => {
   const { name, color, userID } = route.params;
   const [messages, setMessages] = useState([]);
 
-  // Function to save messages to local storage
   const cacheMessages = async (messagesToCache) => {
     try {
       await AsyncStorage.setItem('messages', JSON.stringify(messagesToCache));
@@ -17,7 +20,6 @@ const Chat = ({ route, navigation, db, isConnected }) => {
     }
   }
 
-  // Function to load messages from local storage
   const loadCachedMessages = async () => {
     const cachedMessages = await AsyncStorage.getItem("messages") || [];
     setMessages(JSON.parse(cachedMessages));
@@ -28,12 +30,8 @@ const Chat = ({ route, navigation, db, isConnected }) => {
     let unsub;
 
     if (isConnected === true) {
-      // ONLINE: Fetch from Firestore, then cache it
-      
-      // Unregister current listener if it exists to avoid duplicates
       if (unsub) unsub();
       unsub = null;
-
       const q = query(collection(db, "messages"), orderBy("createdAt", "desc"));
       unsub = onSnapshot(q, (documentsSnapshot) => {
         let newMessages = [];
@@ -48,11 +46,9 @@ const Chat = ({ route, navigation, db, isConnected }) => {
         setMessages(newMessages);
       });
     } else {
-      // OFFLINE: Load from AsyncStorage
       loadCachedMessages();
     }
 
-    // Clean up listener
     return () => {
       if (unsub) unsub();
     }
@@ -74,27 +70,55 @@ const Chat = ({ route, navigation, db, isConnected }) => {
     );
   };
 
-  // Only show input toolbar if online
   const renderInputToolbar = (props) => {
     if (isConnected) return <InputToolbar {...props} />;
     else return null;
   }
 
+  // 1. Render the + button
+  const renderCustomActions = (props) => {
+    return <CustomActions storage={storage} userID={userID} {...props} />;
+  };
+
+  // 2. Render the MapView if location is present
+  const renderCustomView = (props) => {
+    const { currentMessage } = props;
+    if (currentMessage.location) {
+      return (
+        <MapView
+          style={{ width: 150, height: 100, borderRadius: 13, margin: 3 }}
+          region={{
+            latitude: currentMessage.location.latitude,
+            longitude: currentMessage.location.longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          }}
+        />
+      );
+    }
+    return null;
+  };
+
   return (
-    <View style={[styles.container, { backgroundColor: color }]}>
-      <GiftedChat
-        messages={messages}
-        renderBubble={renderBubble}
-        renderInputToolbar={renderInputToolbar}
-        onSend={messages => onSend(messages)}
-        user={{
-          _id: userID,
-          name: name,
-        }}
-      />
-      {Platform.OS === 'android' ? <KeyboardAvoidingView behavior="height" /> : null}
-      {Platform.OS === "ios" ? <KeyboardAvoidingView behavior="padding" /> : null}
-    </View>
+    // 3. Wrap everything in ActionSheetProvider
+    <ActionSheetProvider>
+      <View style={[styles.container, { backgroundColor: color }]}>
+        <GiftedChat
+          messages={messages}
+          renderBubble={renderBubble}
+          renderInputToolbar={renderInputToolbar}
+          renderActions={renderCustomActions}
+          renderCustomView={renderCustomView}
+          onSend={messages => onSend(messages)}
+          user={{
+            _id: userID,
+            name: name,
+          }}
+        />
+        {Platform.OS === 'android' ? <KeyboardAvoidingView behavior="height" /> : null}
+        {Platform.OS === "ios" ? <KeyboardAvoidingView behavior="padding" /> : null}
+      </View>
+    </ActionSheetProvider>
   );
 };
 

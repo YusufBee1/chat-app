@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { StyleSheet, Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-// Import connection checker
 import { useNetInfo } from '@react-native-community/netinfo';
 
 // Import the screens
@@ -12,6 +11,7 @@ import Chat from './components/Chat';
 // Import Firebase
 import { initializeApp } from "firebase/app";
 import { getFirestore, disableNetwork, enableNetwork } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -23,14 +23,14 @@ const firebaseConfig = {
   appId: "1:586998598178:web:fa980ceec9e414d9f9d87b"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+// Initialize Storage
+const storage = getStorage(app);
 
 const Stack = createNativeStackNavigator();
 
 const App = () => {
-  // Get connection status
   const connectionStatus = useNetInfo();
 
   useEffect(() => {
@@ -44,18 +44,17 @@ const App = () => {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName="Start"
-      >
-        <Stack.Screen
-          name="Start"
-          component={Start}
-        />
-        <Stack.Screen
-          name="Chat"
-        >
-          {/* Pass db AND isConnected prop to Chat */}
-          {props => <Chat {...props} db={db} isConnected={connectionStatus.isConnected} />}
+      <Stack.Navigator initialRouteName="Start">
+        <Stack.Screen name="Start" component={Start} />
+        <Stack.Screen name="Chat">
+          {props => (
+            <Chat 
+              {...props} 
+              db={db} 
+              isConnected={connectionStatus.isConnected} 
+              storage={storage}
+            />
+          )}
         </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>
